@@ -32,9 +32,11 @@ upload.addEventListener('change', async (event) => {
         .sort((a, b) => b.probability - a.probability)
         .slice(0, 5);
 
-      result.innerHTML = top5
-        .map((p, i) => `#${i + 1}: Class ${p.className} (${(p.probability * 100).toFixed(2)}%)`)
-        .join('<br>');
+      result.innerHTML = top5.map((p, i) => `
+        <div>
+          #${i + 1}: Class ${p.className} (${(p.probability * 100).toFixed(2)}%)
+          <div class="bar" style="width:${p.probability * 100}%;"></div>
+        </div>`).join('');
     };
   };
   reader.readAsDataURL(file);
