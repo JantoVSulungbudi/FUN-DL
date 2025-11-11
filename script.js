@@ -1,12 +1,29 @@
 let model;
+let classLabels = [];
 const upload = document.getElementById('upload');
 const preview = document.getElementById('preview');
 const result = document.getElementById('result');
+
+async function loadClassLabels() {
+  try {
+    // Load ImageNet class labels
+    const response = await fetch('https://storage.googleapis.com/tfjs-models/assets/imagenet/labels.json');
+    classLabels = await response.json();
+    console.log('Class labels loaded successfully');
+  } catch (error) {
+    console.error('Error loading class labels:', error);
+    // Fallback: create generic labels if loading fails
+    classLabels = Array.from({ length: 1000 }, (_, i) => `Class ${i}`);
+  }
+}
 
 async function loadModel() {
   result.textContent = 'Loading MobileNet model...';
   
   try {
+    // Load class labels first
+    await loadClassLabels();
+    
     // Use MobileNetV1 which has a reliable URL
     model = await tf.loadLayersModel('https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v1_1.0_224/model.json');
     result.textContent = 'Model loaded. Upload an image to classify.';
@@ -32,6 +49,11 @@ upload.addEventListener('change', async (event) => {
         return;
       }
 
+      if (classLabels.length === 0) {
+        result.textContent = 'Class labels not loaded yet. Please wait.';
+        return;
+      }
+
       try {
         // Preprocess image for MobileNetV1
         const tensor = tf.browser.fromPixels(preview)
@@ -44,17 +66,26 @@ upload.addEventListener('change', async (event) => {
         const predictions = model.predict(tensor);
         const data = await predictions.data();
 
-        // Get top 5 predictions
+        // Get top 5 predictions with class names
         const top5 = Array.from(data)
-          .map((probability, index) => ({ probability, className: index }))
+          .map((probability, index) => ({ 
+            probability, 
+            className: classLabels[index] || `Class ${index}`,
+            classIndex: index 
+          }))
           .sort((a, b) => b.probability - a.probability)
           .slice(0, 5);
 
-        // Display results
+        // Display results with class names
         result.innerHTML = '<strong>Top 5 Predictions:</strong><br>' + 
           top5.map((p, i) => `
-            <div style="margin: 10px 0;">
-              #${i + 1}: Class ${p.className} (${(p.probability * 100).toFixed(2)}%)
+            <div style="margin: 10px 0; padding: 10px; background: white; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+              <div style="font-weight: bold; margin-bottom: 5px;">
+                #${i + 1}: ${p.className}
+              </div>
+              <div style="color: #666; font-size: 14px; margin-bottom: 5px;">
+                Confidence: ${(p.probability * 100).toFixed(2)}%
+              </div>
               <div class="bar" style="width:${Math.min(p.probability * 100, 100)}%;"></div>
             </div>`).join('');
 
