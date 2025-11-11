@@ -8,7 +8,8 @@ async function loadModel() {
   
   try {
     // Use loadGraphModel for MobileNetV2 instead of loadLayersModel
-    model = await tf.loadGraphModel('https://tfhub.dev/google/tfjs-model/imagenet/mobilenet_v2_100_224/classification/3/default/1', { fromTFHub: true });
+    // model = await tf.loadGraphModel('https://tfhub.dev/google/tfjs-model/imagenet/mobilenet_v2_100_224/classification/3/default/1', { fromTFHub: true });
+    model = await tf.loadGraphModel('https://storage.googleapis.com/tfhub-tfjs-modules/google/tf2-preview/mobilenet_v2/classification/4/default/1', { fromTFHub: true });
     result.textContent = 'Model loaded. Upload an image to classify.';
   } catch (error) {
     console.error('Error loading model:', error);
