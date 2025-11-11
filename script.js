@@ -7,7 +7,8 @@ let model;
 let labels;
 
 // Pretrained MobileNetV2 model from TFHub
-const MODEL_URL = 'https://tfhub.dev/google/tfjs-model/imagenet/mobilenet_v2_140_224/classification/5';
+// const MODEL_URL = 'https://tfhub.dev/google/tfjs-model/imagenet/mobilenet_v2_140_224/classification/5';
+const MODEL_URL = 'https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v2_1.0_224/model.json';
 const LABELS_URL = 'https://storage.googleapis.com/download.tensorflow.org/data/imagenet_class_index.json';
 
 // Load ImageNet labels
