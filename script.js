@@ -1,105 +1,41 @@
-let model;
-let classLabels = [];
-const upload = document.getElementById('upload');
-const preview = document.getElementById('preview');
-const result = document.getElementById('result');
-
 async function loadClassLabels() {
   try {
-    // Load ImageNet class labels
+    // Try primary source first
     const response = await fetch('https://storage.googleapis.com/tfjs-models/assets/imagenet/labels.json');
     classLabels = await response.json();
-    console.log('Class labels loaded successfully');
   } catch (error) {
-    console.error('Error loading class labels:', error);
-    // Fallback: create generic labels if loading fails
-    classLabels = Array.from({ length: 1000 }, (_, i) => `Class ${i}`);
+    console.log('Primary labels failed, trying alternative...');
+    try {
+      // Alternative source from GitHub
+      const response = await fetch('https://raw.githubusercontent.com/tensorflow/tfjs-models/master/mobilenet/src/imagenet_classes.ts');
+      const text = await response.text();
+      
+      // Parse the TypeScript file to extract labels
+      const lines = text.split('\n');
+      const labels = [];
+      let inLabelsArray = false;
+      
+      for (const line of lines) {
+        if (line.includes('export const IMAGENET_CLASSES = {')) {
+          inLabelsArray = true;
+          continue;
+        }
+        if (inLabelsArray && line.includes('};')) {
+          break;
+        }
+        if (inLabelsArray && line.includes(':')) {
+          const match = line.match(/\d+:\s*'([^']+)'/);
+          if (match) {
+            labels.push(match[1]);
+          }
+        }
+      }
+      
+      classLabels = labels;
+    } catch (fallbackError) {
+      console.error('All label sources failed:', fallbackError);
+      // Final fallback: create generic labels
+      classLabels = Array.from({ length: 1000 }, (_, i) => `Class ${i}`);
+    }
   }
 }
-
-async function loadModel() {
-  result.textContent = 'Loading MobileNet model...';
-  
-  try {
-    // Load class labels first
-    await loadClassLabels();
-    
-    // Use MobileNetV1 which has a reliable URL
-    model = await tf.loadLayersModel('https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v1_1.0_224/model.json');
-    result.textContent = 'Model loaded. Upload an image to classify.';
-  } catch (error) {
-    console.error('Error loading model:', error);
-    result.textContent = 'Error loading model. Please refresh the page.';
-  }
-}
-
-upload.addEventListener('change', async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-
-  reader.onload = async function () {
-    preview.src = reader.result;
-    result.textContent = 'Analyzing...';
-
-    preview.onload = async () => {
-      if (!model) {
-        result.textContent = 'Model not loaded yet. Please wait.';
-        return;
-      }
-
-      if (classLabels.length === 0) {
-        result.textContent = 'Class labels not loaded yet. Please wait.';
-        return;
-      }
-
-      try {
-        // Preprocess image for MobileNetV1
-        const tensor = tf.browser.fromPixels(preview)
-          .resizeNearestNeighbor([224, 224])
-          .toFloat()
-          .expandDims(0)
-          .div(255); // Normalize to [0, 1]
-
-        // Get predictions
-        const predictions = model.predict(tensor);
-        const data = await predictions.data();
-
-        // Get top 5 predictions with class names
-        const top5 = Array.from(data)
-          .map((probability, index) => ({ 
-            probability, 
-            className: classLabels[index] || `Class ${index}`,
-            classIndex: index 
-          }))
-          .sort((a, b) => b.probability - a.probability)
-          .slice(0, 5);
-
-        // Display results with class names
-        result.innerHTML = '<strong>Top 5 Predictions:</strong><br>' + 
-          top5.map((p, i) => `
-            <div style="margin: 10px 0; padding: 10px; background: white; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-              <div style="font-weight: bold; margin-bottom: 5px;">
-                #${i + 1}: ${p.className}
-              </div>
-              <div style="color: #666; font-size: 14px; margin-bottom: 5px;">
-                Confidence: ${(p.probability * 100).toFixed(2)}%
-              </div>
-              <div class="bar" style="width:${Math.min(p.probability * 100, 100)}%;"></div>
-            </div>`).join('');
-
-        // Clean up
-        tensor.dispose();
-        predictions.dispose();
-
-      } catch (error) {
-        console.error('Error during prediction:', error);
-        result.textContent = 'Error analyzing image.';
-      }
-    };
-  };
-  reader.readAsDataURL(file);
-});
-
-loadModel();
