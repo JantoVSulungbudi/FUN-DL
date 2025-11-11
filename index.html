@@ -2,24 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>MobileNetV2 Image Classifier Demo</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.12.0/dist/tf.min.js"></script>
-  <script src="script.js" defer></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MobileNetV2 Image Classifier</title>
   <link rel="icon" href="data:,">
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+  <script defer src="script.js"></script>
   <style>
-    body { font-family: system-ui; margin: 40px; text-align: center; background: #fafafa; }
-    h2 { color: #333; }
-    img { max-width: 320px; border-radius: 8px; margin-top: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-    table { margin: 20px auto; border-collapse: collapse; }
-    td, th { padding: 6px 12px; border: 1px solid #ddd; }
-    #status { margin-top: 15px; color: #555; }
+    body { font-family: Arial, sans-serif; background: #f4f6f8; text-align: center; padding: 20px; }
+    h1 { color: #333; }
+    .upload-area {
+      margin: 20px auto; padding: 20px; border: 2px dashed #aaa;
+      background: white; width: 300px; border-radius: 10px;
+    }
+    input[type=file] { margin-top: 10px; }
+    img { max-width: 300px; margin-top: 10px; border-radius: 10px; }
+    #result { margin-top: 20px; font-size: 16px; }
+    .bar {
+      height: 10px; background: #4CAF50; border-radius: 5px; margin-top: 3px;
+    }
   </style>
 </head>
 <body>
-  <h2>MobileNetV2 Image Classifier</h2>
-  <input type="file" id="upload" accept="image/*"><br>
-  <img id="preview" alt="preview">
-  <p id="status">Loading model...</p>
-  <div id="output"></div>
+  <h1>MobileNetV2 Classifier</h1>
+  <div class="upload-area">
+    <p>Select or drop an image</p>
+    <input type="file" id="upload" accept="image/*">
+    <img id="preview" />
+  </div>
+  <div id="result">Model loading...</div>
 </body>
 </html>
