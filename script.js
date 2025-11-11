@@ -1,68 +1,43 @@
+let model;
 const upload = document.getElementById('upload');
 const preview = document.getElementById('preview');
-const statusEl = document.getElementById('status');
-const output = document.getElementById('output');
+const result = document.getElementById('result');
 
-let model;
-let labels;
-
-// Pretrained MobileNetV2 model from TFHub
-// const MODEL_URL = 'https://tfhub.dev/google/tfjs-model/imagenet/mobilenet_v2_140_224/classification/5';
-const MODEL_URL = 'https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v2_1.0_224/model.json';
-const LABELS_URL = 'https://storage.googleapis.com/download.tensorflow.org/data/imagenet_class_index.json';
-
-// Load ImageNet labels
-async function loadLabels() {
-  const res = await fetch(LABELS_URL);
-  const json = await res.json();
-  const arr = new Array(1000);
-  for (let i in json) arr[i] = json[i][1];
-  return arr;
+async function loadModel() {
+  result.textContent = 'Loading MobileNetV2 model...';
+  model = await tf.loadLayersModel('https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v2_1.0_224/model.json');
+  result.textContent = 'Model loaded. Upload an image to classify.';
 }
 
-// Preprocess the image to 224x224 and normalize [-1,1]
-function preprocess(img) {
-  return tf.tidy(() => {
-    const tensor = tf.browser.fromPixels(img).resizeBilinear([224, 224]).toFloat();
-    const normalized = tensor.div(127.5).sub(1);
-    return normalized.expandDims(0);
-  });
-}
+upload.addEventListener('change', async (event) => {
+  const file = event.target.files[0];
+  const reader = new FileReader();
 
-async function init() {
-  statusEl.textContent = 'Loading model...';
-  model = await tf.loadGraphModel(MODEL_URL, { fromTFHub: true });
-  labels = await loadLabels();
-  statusEl.textContent = 'Model ready! Upload an image.';
-}
+  reader.onload = async function () {
+    preview.src = reader.result;
+    result.textContent = 'Analyzing...';
 
-upload.addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  preview.src = URL.createObjectURL(file);
+    preview.onload = async () => {
+      const tensor = tf.browser.fromPixels(preview)
+        .resizeNearestNeighbor([224, 224])
+        .toFloat()
+        .div(tf.scalar(255))
+        .expandDims();
 
-  preview.onload = async () => {
-    statusEl.textContent = 'Classifying...';
-    const input = preprocess(preview);
-    const logits = model.predict(input);
-    const probs = await tf.softmax(logits).data();
-    input.dispose();
-    logits.dispose();
+      const predictions = model.predict(tensor);
+      const data = await predictions.data();
 
-    // Get top 5 predictions
-    const top = Array.from(probs)
-      .map((p, i) => ({ i, p }))
-      .sort((a, b) => b.p - a.p)
-      .slice(0, 5);
+      const top5 = Array.from(data)
+        .map((p, i) => ({ probability: p, className: i }))
+        .sort((a, b) => b.probability - a.probability)
+        .slice(0, 5);
 
-    let html = `<table><tr><th>Rank</th><th>Label</th><th>Probability</th></tr>`;
-    for (let k = 0; k < top.length; k++) {
-      html += `<tr><td>${k + 1}</td><td>${labels[top[k].i]}</td><td>${(top[k].p * 100).toFixed(2)}%</td></tr>`;
-    }
-    html += `</table>`;
-    output.innerHTML = html;
-    statusEl.textContent = 'Done.';
+      result.innerHTML = top5
+        .map((p, i) => `#${i + 1}: Class ${p.className} (${(p.probability * 100).toFixed(2)}%)`)
+        .join('<br>');
+    };
   };
+  reader.readAsDataURL(file);
 });
 
-init();
+loadModel();
