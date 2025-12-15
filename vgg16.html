@@ -1,95 +1,96 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>VGG16</title>
+<meta charset="utf-8">
+<title>VGG16 ImageNet (JS only)</title>
 
-  <!-- TensorFlow.js -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/vgg16"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/imagenet-classifier"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0"></script>
 </head>
 
 <body>
-  <h2>VGG16 ImageNet Prediction</h2>
+<h2>VGG16 ImageNet Prediction</h2>
 
-  <input type="file" id="upload">
-  <br><br>
+<input type="file" id="upload"><br><br>
 
-  Image URL:
-  <input type="text" id="url" size="50">
-  <button onclick="loadFromURL()">Load URL</button>
+Image URL:
+<input type="text" id="url" size="50">
+<button onclick="loadFromURL()">Load URL</button>
 
-  <br><br>
-  <img id="image" width="224" crossorigin="anonymous">
-  <br><br>
+<br><br>
+<img id="image" width="224" crossorigin="anonymous">
+<br><br>
 
-  <button onclick="predict()">Predict</button>
+<button onclick="predict()">Predict</button>
 
-  <h3>Result</h3>
-  <ul id="result"></ul>
+<h3>Result</h3>
+<ul id="result"></ul>
 
 <script>
 let model;
+let classIndex;
 
+// Load ImageNet labels
+fetch("https://storage.googleapis.com/download.tensorflow.org/data/imagenet_class_index.json")
+  .then(r => r.json())
+  .then(data => classIndex = data);
+
+// Load VGG16 model
 async function loadModel() {
-  document.getElementById("result").innerHTML = "<li>Loading model...</li>";
-  model = await vgg16.load();
-  document.getElementById("result").innerHTML = "<li>Model loaded</li>";
-}
+  document.getElementById("result").innerHTML =
+    "<li>Loading VGG16 model… (be patient)</li>";
 
+  model = await tf.loadGraphModel(
+    "https://storage.googleapis.com/tfjs-models/tfjs/vgg16/model.json"
+  );
+
+  document.getElementById("result").innerHTML =
+    "<li>Model loaded</li>";
+}
 loadModel();
 
-// Load image from file
+// Upload image
 document.getElementById("upload").addEventListener("change", e => {
-  const img = document.getElementById("image");
-  img.src = URL.createObjectURL(e.target.files[0]);
+  document.getElementById("image").src =
+    URL.createObjectURL(e.target.files[0]);
 });
 
-// Load image from URL
+// Load from URL
 function loadFromURL() {
-  const img = document.getElementById("image");
-  img.src = document.getElementById("url").value;
+  document.getElementById("image").src =
+    document.getElementById("url").value;
 }
 
 // Predict
 async function predict() {
   const img = document.getElementById("image");
-  const tensor = tf.browser.fromPixels(img)
+
+  let tensor = tf.browser.fromPixels(img)
     .resizeNearestNeighbor([224, 224])
-    .expandDims(0)
-    .toFloat();
+    .toFloat()
+    .expandDims(0);
 
-  const prediction = model.predict(tensor);
-  const logits = prediction.dataSync();
+  // VGG16 preprocessing (BGR + mean subtraction)
+  const mean = tf.tensor1d([123.68, 116.779, 103.939]);
+  tensor = tensor.sub(mean);
 
-  const classes = imagenetClasses;
-  const top5 = [...logits]
-    .map((p, i) => ({prob: p, className: classes[i]}))
-    .sort((a, b) => b.prob - a.prob)
+  const logits = model.predict(tensor);
+  const probs = logits.softmax().dataSync();
+
+  const top5 = [...probs]
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => b.p - a.p)
     .slice(0, 5);
 
   const ul = document.getElementById("result");
   ul.innerHTML = "";
-  top5.forEach(p => {
+
+  top5.forEach(t => {
+    const label = classIndex[t.i][1];
     const li = document.createElement("li");
-    li.innerText = `${p.className} : ${(p.prob * 100).toFixed(2)}%`;
+    li.innerText = `${label} — ${(t.p * 100).toFixed(2)}%`;
     ul.appendChild(li);
   });
 }
-</script>
-
-<!-- ImageNet labels -->
-<script src="https://storage.googleapis.com/download.tensorflow.org/data/imagenet_class_index.json"></script>
-<script>
-let imagenetClasses = {};
-fetch("https://storage.googleapis.com/download.tensorflow.org/data/imagenet_class_index.json")
-  .then(r => r.json())
-  .then(data => {
-    for (const key in data) {
-      imagenetClasses[key] = data[key][1];
-    }
-  });
 </script>
 
 </body>
